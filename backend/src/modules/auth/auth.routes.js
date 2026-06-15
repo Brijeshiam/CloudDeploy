@@ -11,6 +11,7 @@ const { authLimiter } = require('../../middleware/rateLimiter');
 const {
   register, login, refresh, logout,
   forgotPassword, resetPassword, verifyEmail, getMe,
+  updateProfile, changePassword,
 } = require('./auth.controller');
 const {
   validate, registerSchema, loginSchema, refreshSchema,
@@ -28,5 +29,7 @@ router.post('/forgot-password', validate(forgotPasswordSchema),  forgotPassword)
 router.post('/reset-password',  validate(resetPasswordSchema),   resetPassword);
 router.get('/verify-email/:token',                               verifyEmail);
 router.get('/me',               authenticate,                    getMe);
+router.put('/profile',          authenticate,                    updateProfile);
+router.put('/password',         authenticate,                    changePassword);
 
 module.exports = router;
