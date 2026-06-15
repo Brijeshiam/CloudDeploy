@@ -8,6 +8,8 @@ import NewProjectPage from './pages/NewProjectPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import DeploymentDetailPage from './pages/DeploymentDetailPage';
 import AdminPage from './pages/AdminPage';
+import ProfilePage from './pages/ProfilePage';
+import DemoGuidePage from './pages/DemoGuidePage';
 import NotFoundPage from './pages/NotFoundPage';
 import DocsPage from './pages/DocsPage';
 
@@ -96,6 +98,22 @@ export default function App() {
           element={
             <ProtectedRoute adminOnly>
               <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/demo"
+          element={
+            <ProtectedRoute>
+              <DemoGuidePage />
             </ProtectedRoute>
           }
         />

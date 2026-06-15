@@ -147,12 +147,12 @@ export default function Navbar() {
                           <DropdownItem
                             icon={<User size={14} />}
                             label="Profile"
-                            onClick={() => { setDropdownOpen(false); }}
+                            onClick={() => { navigate('/profile'); setDropdownOpen(false); }}
                           />
                           <DropdownItem
                             icon={<Settings size={14} />}
                             label="Settings"
-                            onClick={() => { setDropdownOpen(false); }}
+                            onClick={() => { navigate('/profile'); setDropdownOpen(false); }}
                           />
                           {isAdmin && (
                             <DropdownItem

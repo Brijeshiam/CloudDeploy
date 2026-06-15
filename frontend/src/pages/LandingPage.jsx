@@ -238,7 +238,7 @@ export default function LandingPage() {
             <Link to="/register" className="btn-primary justify-center text-sm font-semibold py-3.5 px-8 rounded-xl shadow-[0_0_20px_rgba(82,141,255,0.3)] hover:scale-[1.02] transition-transform active:scale-95 flex-1">
               Start Deploying
             </Link>
-            <Link to="/login" className="btn-secondary justify-center text-sm font-semibold py-3.5 px-8 rounded-xl hover:bg-white/10 transition-colors flex-1">
+            <Link to="/login?demo=true" className="btn-secondary justify-center text-sm font-semibold py-3.5 px-8 rounded-xl hover:bg-white/10 transition-colors flex-1">
               Live Demo
             </Link>
           </motion.div>

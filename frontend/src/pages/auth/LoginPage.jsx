@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, Rocket, ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -7,11 +7,30 @@ import { useAuth } from '../../hooks/useAuth';
 export default function LoginPage() {
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('demo') === 'true') {
+      const demoEmail = 'admin@clouddeploy.com';
+      const demoPassword = 'password123'; // Standard default/dummy credentials for local setup
+      setForm({ email: demoEmail, password: demoPassword });
+
+      // Automatically trigger login for seamless demo experience
+      const performAutoLogin = async () => {
+        const result = await login(demoEmail, demoPassword);
+        if (result.success) {
+          navigate('/demo');
+        }
+      };
+      performAutoLogin();
+    }
+  }, [location, login, navigate]);
 
   const validate = () => {
     const errs = {};
