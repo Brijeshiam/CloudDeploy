@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{NAMESPACE}}
+  labels:
+    app.kubernetes.io/managed-by: clouddeploy
+    clouddeploy/project: "{{PROJECT_SLUG}}"
+    clouddeploy/owner: "{{USER_ID}}"
+  annotations:
+    clouddeploy/created-at: "{{CREATED_AT}}"
+    clouddeploy/project-id: "{{PROJECT_ID}}"

@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{PROJECT_SLUG}}-deployment
+  namespace: {{NAMESPACE}}
+  labels:
+    app: {{PROJECT_SLUG}}
+    app.kubernetes.io/name: {{PROJECT_SLUG}}
+    app.kubernetes.io/managed-by: clouddeploy
+    clouddeploy/project-id: "{{PROJECT_ID}}"
+    clouddeploy/deployment-id: "{{DEPLOYMENT_ID}}"
+    version: "{{VERSION}}"
+  annotations:
+    clouddeploy/image: "{{IMAGE_TAG}}"
+    clouddeploy/deployed-at: "{{DEPLOYED_AT}}"
+    kubectl.kubernetes.io/last-applied-configuration: ""
+spec:
+  replicas: {{REPLICAS}}
+  selector:
+    matchLabels:
+      app: {{PROJECT_SLUG}}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: {{PROJECT_SLUG}}
+        version: "{{VERSION}}"
+      annotations:
+        # Annotation used to trigger rolling restarts
+        kubectl.kubernetes.io/restartedAt: ""
+    spec:
+      # Graceful shutdown: allow 30s for in-flight requests
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: {{PROJECT_SLUG}}
+          image: {{IMAGE_TAG}}
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: {{APP_PORT}}
+              protocol: TCP
+
+          # Environment from ConfigMap and Secret
+          envFrom:
+            - configMapRef:
+                name: {{PROJECT_SLUG}}-configmap
+                optional: true
+            - secretRef:
+                name: {{PROJECT_SLUG}}-secret
+                optional: true
+
+          # Resource limits prevent noisy-neighbour issues
+          resources:
+            requests:
+              cpu: "{{CPU_REQUEST}}"       # e.g. "100m"
+              memory: "{{MEMORY_REQUEST}}" # e.g. "128Mi"
+            limits:
+              cpu: "{{CPU_LIMIT}}"         # e.g. "500m"
+              memory: "{{MEMORY_LIMIT}}"   # e.g. "512Mi"
+
+          # Liveness probe — restart pod if app is deadlocked
+          livenessProbe:
+            httpGet:
+              path: {{HEALTH_PATH}}
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Readiness probe — only route traffic when ready
+          readinessProbe:
+            httpGet:
+              path: {{HEALTH_PATH}}
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # Startup probe — give extra time on first start
+          startupProbe:
+            httpGet:
+              path: {{HEALTH_PATH}}
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+
+      # Image pull secrets for private registries
+      imagePullSecrets:
+        - name: registry-credentials
+
+      # Restart policy
+      restartPolicy: Always
+
+      # Spread pods across nodes for high availability
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: {{PROJECT_SLUG}}

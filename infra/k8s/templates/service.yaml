@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{PROJECT_SLUG}}-service
+  namespace: {{NAMESPACE}}
+  labels:
+    app: {{PROJECT_SLUG}}
+    app.kubernetes.io/managed-by: clouddeploy
+    clouddeploy/project-id: "{{PROJECT_ID}}"
+  annotations:
+    clouddeploy/created-at: "{{CREATED_AT}}"
+spec:
+  type: ClusterIP
+  selector:
+    app: {{PROJECT_SLUG}}
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: {{APP_PORT}}

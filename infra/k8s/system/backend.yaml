@@ -1,0 +1,117 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clouddeploy-backend-config
+  namespace: clouddeploy-system
+data:
+  PORT: "5000"
+  NODE_ENV: "production"
+  MONGODB_URI: "mongodb://admin:clouddeploy_secret@mongodb.clouddeploy-system.svc.cluster.local:27017/clouddeploy?authSource=admin"
+  REDIS_URL: "redis://:clouddeploy_redis_secret@redis.clouddeploy-system.svc.cluster.local:6379"
+  JWT_EXPIRES_IN: "15m"
+  JWT_REFRESH_EXPIRES_IN: "7d"
+  DOCKER_REGISTRY: "docker.io"
+  KUBERNETES_NAMESPACE_PREFIX: "clouddeploy"
+  BASE_DOMAIN: "clouddeploy.local"
+  REPOS_PATH: "/app/repos"
+  PROMETHEUS_URL: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
+  FRONTEND_URL: "http://app.clouddeploy.local"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: clouddeploy-backend-secrets
+  namespace: clouddeploy-system
+type: Opaque
+data:
+  # Base64 encoded values for the secrets
+  # Change these in a production scenario
+  JWT_SECRET: "eW91cl9zdXBlcl9zZWNyZXRfand0X2tleV9jaGFuZ2VfdGhpc19pbl9wcm9kdWN0aW9uX21pbl8zMl9jaGFycw==" # "your_super_secret_jwt_key_change_this_in_production_min_32_chars"
+  JWT_REFRESH_SECRET: "eW91cl9zdXBlcl9zZWNyZXRfcmVmcmVzaF9rZXlfY2hhbmdlX3RoaXNfaW5fcHJvZHVjdGlvbl9taW5fMzJfY2hhcnM=" # "your_super_secret_refresh_key_change_this_in_production_min_32_chars"
+  ENCRYPTION_KEY: "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMA==" # "0000000000000000000000000000000000000000000000000000000000000000"
+  DOCKER_USERNAME: "ZHVtbXlfZG9ja2VyX3VzZXJuYW1l" # "dummy_docker_username"
+  DOCKER_PASSWORD: "ZHVtbXlfZG9ja2VyX3Bhc3N3b3Jk" # "dummy_docker_password"
+  GITHUB_WEBHOOK_SECRET: "ZHVtbXlfZ2l0aHViX3dlYmhvb2tfc2VjcmV0" # "dummy_github_webhook_secret"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clouddeploy-backend
+  namespace: clouddeploy-system
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      serviceAccountName: default # In dev, Minikube default SA has cluster-admin if configured, or we bind cluster-admin
+      containers:
+        - name: backend
+          image: clouddeploy-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - configMapRef:
+                name: clouddeploy-backend-config
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: clouddeploy-backend-secrets
+                  key: JWT_SECRET
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: clouddeploy-backend-secrets
+                  key: JWT_REFRESH_SECRET
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: clouddeploy-backend-secrets
+                  key: ENCRYPTION_KEY
+            - name: DOCKER_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: clouddeploy-backend-secrets
+                  key: DOCKER_USERNAME
+            - name: DOCKER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: clouddeploy-backend-secrets
+                  key: DOCKER_PASSWORD
+            - name: GITHUB_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: clouddeploy-backend-secrets
+                  key: GITHUB_WEBHOOK_SECRET
+          volumeMounts:
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
+            - name: repos-volume
+              mountPath: /app/repos
+      volumes:
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        - name: repos-volume
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: clouddeploy-system
+spec:
+  ports:
+    - port: 5000
+      targetPort: 5000
+  selector:
+    app: backend

@@ -1,0 +1,170 @@
+version: "3.9"
+
+# =============================================================================
+# CloudDeploy — Local Development Stack
+# =============================================================================
+# Usage:
+#   docker-compose up -d           → start all services
+#   docker-compose logs -f backend → tail backend logs
+#   docker-compose down -v         → stop & remove volumes
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # MongoDB — Primary Database
+  # ---------------------------------------------------------------------------
+  mongodb:
+    image: mongo:7.0
+    container_name: clouddeploy-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: clouddeploy_secret
+      MONGO_INITDB_DATABASE: clouddeploy
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - clouddeploy-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Redis — BullMQ Job Queue + Session Store
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7.2-alpine
+    container_name: clouddeploy-redis
+    restart: unless-stopped
+    command: redis-server --requirepass clouddeploy_redis_secret --appendonly yes
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - clouddeploy-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "clouddeploy_redis_secret", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Backend API — Node.js + Express
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: clouddeploy-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://admin:clouddeploy_secret@mongodb:27017/clouddeploy?authSource=admin
+      REDIS_URL: redis://:clouddeploy_redis_secret@redis:6379
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - repos_data:/app/repos              # cloned GitHub repos
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker socket for builds
+      - ~/.kube:/root/.kube:ro             # Kubernetes config (read-only)
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - clouddeploy-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # Frontend — React + Vite Dev Server
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: clouddeploy-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:5000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - clouddeploy-network
+
+  # ---------------------------------------------------------------------------
+  # Mongo Express — MongoDB Web UI (development only)
+  # ---------------------------------------------------------------------------
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: clouddeploy-mongo-express
+    restart: unless-stopped
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: clouddeploy_secret
+      ME_CONFIG_MONGODB_URL: mongodb://admin:clouddeploy_secret@mongodb:27017/
+      ME_CONFIG_BASICAUTH: false
+    ports:
+      - "8081:8081"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - clouddeploy-network
+    profiles:
+      - tools
+
+  # ---------------------------------------------------------------------------
+  # Redis Commander — Redis Web UI (development only)
+  # ---------------------------------------------------------------------------
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: clouddeploy-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: "local:redis:6379:0:clouddeploy_redis_secret"
+    ports:
+      - "8082:8081"
+    depends_on:
+      - redis
+    networks:
+      - clouddeploy-network
+    profiles:
+      - tools
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+  repos_data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  clouddeploy-network:
+    driver: bridge
+    name: clouddeploy-network

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{PROJECT_SLUG}}-configmap
+  namespace: {{NAMESPACE}}
+  labels:
+    app: {{PROJECT_SLUG}}
+    app.kubernetes.io/managed-by: clouddeploy
+    clouddeploy/project-id: "{{PROJECT_ID}}"
+  annotations:
+    clouddeploy/updated-at: "{{UPDATED_AT}}"
+    clouddeploy/synced-from: "clouddeploy-envvars"
+data:
+  # Non-sensitive environment variables are stored here.
+  # Sensitive variables (isSecret=true) are stored in the Secret resource.
+  # This ConfigMap is auto-synced by CloudDeploy when env vars are updated.
+  {{ENV_VARS}}
